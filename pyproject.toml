@@ -1,0 +1,24 @@
+[project]
+name = "prem"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Sachintripathi123", email = "sachintripathi6306492549@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "nltk>=3.10.3",
+    "pandas>=3.0.6",
+    "scikit-learn>=1.9.1",
+    "seaborn>=0.13.2",
+    "streamlit>=1.64.0",
+]
+
+[project.scripts]
+prem = "prem:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
