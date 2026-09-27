@@ -1,6 +1,4 @@
-pandas
-matplotlib
-seaborn
-nltk
-scikit-learn
 streamlit
+pandas
+scikit-learn
+nltk
