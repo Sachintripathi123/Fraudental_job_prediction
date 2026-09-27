@@ -4,60 +4,21 @@ import re
 import nltk
 
 from pathlib import Path
-
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import LinearSVC
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
-    page_title="Fake Job Detector",
+    page_title="Fake Job Posting Detector",
     page_icon="🕵️",
     layout="centered"
-)
-
-
-# ============================================================
-# CUSTOM CSS
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-
-    .main-title {
-        text-align: center;
-        font-size: 40px;
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-
-    .subtitle {
-        text-align: center;
-        color: gray;
-        font-size: 18px;
-        margin-bottom: 30px;
-    }
-
-    .result-box {
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        font-size: 22px;
-        font-weight: bold;
-        margin-top: 20px;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
 )
 
 
@@ -65,28 +26,35 @@ st.markdown(
 # TITLE
 # ============================================================
 
-st.markdown(
-    '<div class="main-title">🕵️ Fake Job Posting Detector</div>',
-    unsafe_allow_html=True
+st.title("🕵️ Fake Job Posting Detector")
+
+st.write(
+    "Enter a job posting below to check whether "
+    "it may be fraudulent."
 )
 
-st.markdown(
-    '<div class="subtitle">'
-    'Detect whether a job posting is potentially fraudulent using Machine Learning'
-    '</div>',
-    unsafe_allow_html=True
-)
+st.divider()
 
 
 # ============================================================
-# NLTK
+# NLTK STOPWORDS
 # ============================================================
 
 try:
-    stop_words = set(stopwords.words("english"))
+    stop_words = set(
+        stopwords.words("english")
+    )
+
 except LookupError:
-    nltk.download("stopwords")
-    stop_words = set(stopwords.words("english"))
+
+    nltk.download(
+        "stopwords",
+        quiet=True
+    )
+
+    stop_words = set(
+        stopwords.words("english")
+    )
 
 
 stemmer = PorterStemmer()
@@ -98,7 +66,11 @@ stemmer = PorterStemmer()
 
 BASE_DIR = Path(__file__).resolve().parent
 
-dataset_path = BASE_DIR / "datasets" / "fake_job_postings.csv"
+dataset_path = (
+    BASE_DIR
+    / "datasets"
+    / "fake_job_postings.csv"
+)
 
 
 # ============================================================
@@ -108,7 +80,7 @@ dataset_path = BASE_DIR / "datasets" / "fake_job_postings.csv"
 if not dataset_path.exists():
 
     st.error(
-        f"Dataset not found!\n\n"
+        "Dataset not found.\n\n"
         f"Expected location:\n{dataset_path}"
     )
 
@@ -120,12 +92,14 @@ if not dataset_path.exists():
 # ============================================================
 
 @st.cache_data
-def load_data():
+def load_dataset():
 
-    return pd.read_csv(dataset_path)
+    return pd.read_csv(
+        dataset_path
+    )
 
 
-df = load_data()
+df = load_dataset()
 
 
 # ============================================================
@@ -134,18 +108,26 @@ df = load_data()
 
 def clean_text(text):
 
+    text = str(text)
+
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove special characters
     text = re.sub(
         r"[^\w\s]",
-        "",
+        " ",
         text
     )
 
+    # Remove numbers
     text = re.sub(
         r"\d+",
-        "",
+        " ",
         text
     )
 
+    # Remove extra spaces
     text = re.sub(
         r"\s+",
         " ",
@@ -163,13 +145,13 @@ def remove_stopwords(text):
 
     words = text.split()
 
-    filtered_words = [
+    words = [
         word
         for word in words
         if word not in stop_words
     ]
 
-    return " ".join(filtered_words)
+    return " ".join(words)
 
 
 # ============================================================
@@ -180,12 +162,12 @@ def stemming(text):
 
     words = text.split()
 
-    stemmed_words = [
+    words = [
         stemmer.stem(word)
         for word in words
     ]
 
-    return " ".join(stemmed_words)
+    return " ".join(words)
 
 
 # ============================================================
@@ -193,7 +175,7 @@ def stemming(text):
 # ============================================================
 
 @st.cache_data
-def prepare_data(data):
+def prepare_dataset(data):
 
     data = data.copy()
 
@@ -205,10 +187,11 @@ def prepare_data(data):
         "benefits"
     ]
 
-    for col in text_columns:
+    for column in text_columns:
 
-        data[col] = data[col].fillna("")
+        data[column] = data[column].fillna("")
 
+    # Combine all important text fields
     data["text"] = (
         data["title"] + " " +
         data["company_profile"] + " " +
@@ -217,18 +200,23 @@ def prepare_data(data):
         data["benefits"]
     )
 
-    data["text"] = data["text"].str.lower()
+    # Text preprocessing
+    data["text"] = data["text"].apply(
+        clean_text
+    )
 
-    data["text"] = data["text"].apply(clean_text)
+    data["text"] = data["text"].apply(
+        remove_stopwords
+    )
 
-    data["text"] = data["text"].apply(remove_stopwords)
-
-    data["text"] = data["text"].apply(stemming)
+    data["text"] = data["text"].apply(
+        stemming
+    )
 
     return data
 
 
-df = prepare_data(df)
+df = prepare_dataset(df)
 
 
 # ============================================================
@@ -238,6 +226,7 @@ df = prepare_data(df)
 @st.cache_resource
 def train_model(data):
 
+    # TF-IDF
     tfidf = TfidfVectorizer(
         max_features=5000
     )
@@ -248,44 +237,26 @@ def train_model(data):
 
     y = data["fraudulent"]
 
-    X_train, X_test, y_train, y_test = train_test_split(
+    # Lightweight SVM
+    model = LinearSVC(
+        C=1.0
+    )
+
+    model.fit(
         X,
-        y,
-        test_size=0.2,
-        random_state=42
+        y
     )
 
-    param_grid = {
-        "C": [
-            0.01,
-            0.1,
-            1,
-            10,
-            100
-        ]
-    }
-
-    grid = GridSearchCV(
-        LinearSVC(),
-        param_grid,
-        cv=5,
-        scoring="f1",
-        n_jobs=-1
-    )
-
-    grid.fit(
-        X_train,
-        y_train
-    )
-
-    return tfidf, grid
+    return tfidf, model
 
 
 # ============================================================
-# MODEL
+# TRAINING
 # ============================================================
 
-with st.spinner("Training machine learning model..."):
+with st.spinner(
+    "Loading machine learning model..."
+):
 
     tfidf, model = train_model(df)
 
@@ -299,109 +270,140 @@ with st.sidebar:
     st.header("📊 Project Information")
 
     st.write(
-        """
-        **Model:** Tuned Support Vector Machine
+        "### Model"
+    )
 
-        **Feature Extraction:** TF-IDF
+    st.write(
+        "Linear Support Vector Machine"
+    )
 
-        **Dataset:** Fake Job Postings
+    st.write(
+        "### Feature Extraction"
+    )
 
-        **Task:** Binary Classification
-        """
+    st.write(
+        "TF-IDF"
+    )
+
+    st.write(
+        "### Dataset"
+    )
+
+    st.write(
+        "Fake Job Postings"
     )
 
     st.divider()
 
     st.write(
-        f"📄 Dataset Records: **{len(df)}**"
+        f"Dataset records: **{len(df)}**"
     )
 
     st.write(
-        f"🔤 TF-IDF Features: **{len(tfidf.vocabulary_)}**"
+        f"TF-IDF features: **{len(tfidf.vocabulary_)}**"
     )
 
 
 # ============================================================
-# JOB POST INPUT
+# INPUT SECTION
 # ============================================================
 
-st.subheader("📋 Enter Job Posting")
+st.subheader("📋 Job Posting Details")
+
 
 job_title = st.text_input(
     "Job Title",
-    placeholder="e.g. Data Scientist"
+    placeholder="Example: Data Scientist"
 )
 
 
-company = st.text_input(
+company_name = st.text_input(
     "Company Name",
-    placeholder="e.g. ABC Technologies"
+    placeholder="Example: ABC Technologies"
 )
 
 
 job_description = st.text_area(
     "Job Description",
     height=180,
-    placeholder=(
-        "Paste the complete job description here..."
-    )
+    placeholder="Paste the job description here..."
 )
 
 
 requirements = st.text_area(
     "Requirements",
     height=120,
-    placeholder=(
-        "Enter required skills, qualifications, experience..."
-    )
+    placeholder="Enter skills, qualifications and experience..."
 )
 
 
 benefits = st.text_area(
     "Benefits",
     height=100,
-    placeholder=(
-        "Enter salary, benefits, perks, etc..."
-    )
+    placeholder="Enter salary, benefits and perks..."
 )
 
 
 # ============================================================
-# SAMPLE JOB BUTTON
+# SAMPLE JOB
 # ============================================================
 
 st.subheader("💡 Quick Test")
 
-if st.button("Load Sample Fraudulent Job"):
 
-    job_title = "Work From Home Data Entry"
+if st.button(
+    "Load Sample Job"
+):
 
-    company = "Global Online Company"
-
-    job_description = """
-    Congratulations! You have been selected without applying.
-    Earn ₹2,50,000 per month.
-    No experience required.
-    Immediate joining.
-    """
-
-    requirements = """
-    No skills required.
-    No experience required.
-    """
-
-    benefits = """
-    High salary.
-    Work from home.
-    """
-
-    st.info(
-        "Sample job loaded. Click 'Check Job Posting' below."
+    st.session_state.job_title = (
+        "Junior Data Analyst"
     )
+
+    st.session_state.company_name = (
+        "ABC Technologies Pvt Ltd"
+    )
+
+    st.session_state.job_description = """
+    We are looking for a Junior Data Analyst
+    to join our analytics team.
+
+    The candidate will work with business data,
+    prepare reports, create dashboards and
+    support data-driven decision making.
+
+    The position follows a structured interview
+    and selection process.
+    """
+
+    st.session_state.requirements = """
+    Bachelor's degree in Computer Science,
+    Information Technology, Data Science,
+    Statistics or a related field.
+
+    Basic knowledge of Python and SQL.
+
+    Knowledge of Excel and data analysis.
+
+    Good analytical and communication skills.
+
+    Freshers can apply.
+    """
+
+    st.session_state.benefits = """
+    Competitive salary based on skills and experience.
+
+    Paid training and learning opportunities.
+
+    Professional development opportunities.
+
+    Health insurance according to company policy.
+    """
+
+    st.rerun()
 
 
 # ============================================================
-# PREDICTION BUTTON
+# PREDICTION
 # ============================================================
 
 if st.button(
@@ -413,38 +415,37 @@ if st.button(
     if not job_title and not job_description:
 
         st.warning(
-            "Please enter at least a Job Title or Job Description."
+            "Please enter at least a Job Title "
+            "or Job Description."
         )
 
     else:
 
         # Combine user input
-        new_job_post = (
+        new_job = (
             job_title + " " +
-            company + " " +
+            company_name + " " +
             job_description + " " +
             requirements + " " +
             benefits
         )
 
-        # Preprocess
-        processed_job = new_job_post.lower()
-
-        processed_job = clean_text(
-            processed_job
+        # Preprocess input
+        new_job = clean_text(
+            new_job
         )
 
-        processed_job = remove_stopwords(
-            processed_job
+        new_job = remove_stopwords(
+            new_job
         )
 
-        processed_job = stemming(
-            processed_job
+        new_job = stemming(
+            new_job
         )
 
-        # TF-IDF
+        # Convert to TF-IDF
         job_vector = tfidf.transform(
-            [processed_job]
+            [new_job]
         )
 
         # Prediction
@@ -452,40 +453,31 @@ if st.button(
             job_vector
         )
 
-        # Decision score
-        score = model.decision_function(
-            job_vector
-        )[0]
-
-
         # ====================================================
         # RESULT
         # ====================================================
 
         st.divider()
 
-        st.subheader("🔎 Prediction Result")
+        st.subheader(
+            "🔎 Prediction Result"
+        )
 
 
         if prediction[0] == 1:
 
             st.error(
-                "🚨 FRAUDULENT JOB POSTING"
-            )
-
-            st.markdown(
-                """
-                <div class="result-box">
-                ⚠️ This job posting has characteristics
-                associated with fraudulent job postings.
-                </div>
-                """,
-                unsafe_allow_html=True
+                "🚨 POTENTIALLY FRAUDULENT JOB POSTING"
             )
 
             st.warning(
-                "Avoid sharing sensitive information or "
-                "making payments until the employer is verified."
+                "The model detected patterns associated "
+                "with fraudulent job postings."
+            )
+
+            st.info(
+                "Do not send money or sensitive personal "
+                "information until the employer is independently verified."
             )
 
         else:
@@ -494,19 +486,10 @@ if st.button(
                 "✅ NOT DETECTED AS FRAUDULENT"
             )
 
-            st.markdown(
-                """
-                <div class="result-box">
-                ✅ The model did not classify this posting
-                as fraudulent.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             st.info(
-                "This prediction is not a guarantee that the "
-                "job or employer is legitimate. Verify the employer independently."
+                "The model did not classify this posting "
+                "as fraudulent. However, this does not guarantee "
+                "that the employer is legitimate."
             )
 
 
@@ -517,5 +500,6 @@ if st.button(
 st.divider()
 
 st.caption(
-    "Fake Job Posting Detection | Machine Learning Project"
+    "Fake Job Posting Detection | "
+    "Machine Learning + TF-IDF + Linear SVM"
 )
